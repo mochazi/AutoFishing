@@ -1,5 +1,5 @@
 #coding=utf-8
-import time,os,sys,shutil,pywinauto,ctypes
+import time,os,sys,shutil,pywinauto,ctypes,pygetwindow
 import numpy as np
 import pyautogui
 import cv2
@@ -7,8 +7,9 @@ import logging
 import traceback
 
 INFO = None
-VERSION = 'v1.0'
+VERSION = 'v1.1'
 LOCATION = None
+WINDOWS_NAME = None
 
 # 解决pyinstaller打包找不到静态文件问题
 def resource_path(relative_path, debug=False):
@@ -25,6 +26,12 @@ def resource_path(relative_path, debug=False):
             base_path = os.path.abspath(".")
 
         return os.path.join(base_path, relative_path)
+
+def check_window_exist(window_title):
+    for window in pygetwindow.getAllTitles():
+        if window.lower() == window_title.lower():
+            return True
+    return False
 
 # 确保存在文件夹
 if not os.path.exists('temp'):
@@ -56,19 +63,27 @@ class AutoFishing():
         return cv_img
 
     def get_windows_location(self):
-        app = pywinauto.Application().connect(title_re="Tales Runner")
+        try:
+            app = pywinauto.Application().connect(title_re=WINDOWS_NAME)
+            
+            # 获取主窗口
+            main_window = app.window(title=WINDOWS_NAME)
+
+            # 将窗口置顶
+            main_window.set_focus()
+
+            main_window.topmost = True
+
+            window = app.top_window()
+            left, right, top, down  = window.rectangle().left, window.rectangle().right, window.rectangle().top, window.rectangle().bottom
+            # print(f"The window position is ({left}, {right}, {top}, {down})")
+            return left, right, top, down
+        except pywinauto.findwindows.ElementNotFoundError:
+            print(traceback.format_exc())
+
+        except TypeError:
+            print(traceback.format_exc())
         
-        # 获取主窗口
-        main_window = app.window(title="Tales Runner")
-
-        # 将窗口置顶
-        main_window.set_focus()
-        main_window.topmost = True
-
-        window = app.top_window()
-        left, right, top, down  = window.rectangle().left, window.rectangle().right, window.rectangle().top, window.rectangle().bottom
-        # print(f"The window position is ({left}, {right}, {top}, {down})")
-        return left, right, top, down
 
     def get_keypoint_bounds(self,kp):
         # 获取关键点的中心坐标和直径大小
@@ -178,6 +193,7 @@ class AutoFishing():
             print()
             print(repr(error))
             print()
+            logger.error(traceback.format_exc())
             INFO = '没有匹配目标, 请确保游戏窗口没有脱离显示器屏幕'
             return False, False, False
 
@@ -360,6 +376,7 @@ class AutoFishing():
             # print(INFO)
 
             self.auto_click(avg)
+            pyautogui.moveTo(avg[0]+300, avg[1])
 
 
         # 展示图片
@@ -444,6 +461,7 @@ class AutoFishing():
             # print(INFO)
 
             self.auto_click(avg)
+            pyautogui.moveTo(avg[0]+300, avg[1])
 
 
         # 展示图片
@@ -724,11 +742,14 @@ class Win(WinGUI):
         self.tk_button_tutorial.config(command=self.__button_tutorial_window)
 
     def start(self):
-        self.flag = True
-        if self.__tk_entry_minute_constraint():
-            self.thread = threading.Thread(target=self.print_info)
-            self.thread.setDaemon(True) 
-            self.thread.start()
+        if WINDOWS_NAME:
+            self.flag = True
+            if self.__tk_entry_minute_constraint():
+                self.thread = threading.Thread(target=self.print_info)
+                self.thread.setDaemon(True) 
+                self.thread.start()
+        else:
+            messagebox.showwarning('警告','没有找到游戏窗口\n\n请使用窗口化而不是无边框')
 
     def stop(self):
         self.flag = False
@@ -869,6 +890,11 @@ def is_admin():
         return False
     
 if __name__ == "__main__":
+
+    # 检查游戏是否存在
+    for name in ["Tales Runner", "Tales Runner ver."]:
+        if check_window_exist(name):
+            WINDOWS_NAME = name
 
     if is_admin():
         win = Win()
