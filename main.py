@@ -88,7 +88,7 @@ class AutoFishing():
                     return left, right, top, down
                 
                 except:
-                    logger.error(traceback.format_exc())
+                    print(traceback.format_exc())
 
 
     def get_keypoint_bounds(self,kp):
