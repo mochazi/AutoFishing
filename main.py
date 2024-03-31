@@ -7,7 +7,7 @@ import logging
 import traceback
 
 INFO = None
-VERSION = 'v1.1'
+VERSION = 'v1.2'
 LOCATION = None
 WINDOWS_NAME = None
 
@@ -29,8 +29,8 @@ def resource_path(relative_path, debug=False):
 
 def check_window_exist(window_title):
     for window in pygetwindow.getAllTitles():
-        if window.lower() == window_title.lower():
-            return True
+        if window_title.lower() in window.lower():
+            return window
     return False
 
 # 确保存在文件夹
@@ -63,27 +63,33 @@ class AutoFishing():
         return cv_img
 
     def get_windows_location(self):
-        try:
-            app = pywinauto.Application().connect(title_re=WINDOWS_NAME)
-            
-            # 获取主窗口
-            main_window = app.window(title=WINDOWS_NAME)
 
-            # 将窗口置顶
-            main_window.set_focus()
+        desktop = pywinauto.Desktop()
+        windows = desktop.windows()
 
-            main_window.topmost = True
+        for window in windows:
 
-            window = app.top_window()
-            left, right, top, down  = window.rectangle().left, window.rectangle().right, window.rectangle().top, window.rectangle().bottom
-            # print(f"The window position is ({left}, {right}, {top}, {down})")
-            return left, right, top, down
-        except pywinauto.findwindows.ElementNotFoundError:
-            print(traceback.format_exc())
+            if WINDOWS_NAME in window.window_text():
+                
+                try:
+                    app = pywinauto.Application().connect(handle=window.handle)
+                                
+                    # 获取主窗口
+                    main_window = app.window(title=WINDOWS_NAME)
 
-        except TypeError:
-            print(traceback.format_exc())
-        
+                    # 将窗口置顶
+                    main_window.set_focus()
+
+                    main_window.topmost = True
+
+                    window = app.top_window()
+                    left, right, top, down  = window.rectangle().left, window.rectangle().right, window.rectangle().top, window.rectangle().bottom
+                    # print(f"The window position is ({left}, {right}, {top}, {down})")
+                    return left, right, top, down
+                
+                except:
+                    logger.error(traceback.format_exc())
+
 
     def get_keypoint_bounds(self,kp):
         # 获取关键点的中心坐标和直径大小
@@ -892,9 +898,7 @@ def is_admin():
 if __name__ == "__main__":
 
     # 检查游戏是否存在
-    for name in ["Tales Runner", "Tales Runner ver."]:
-        if check_window_exist(name):
-            WINDOWS_NAME = name
+    WINDOWS_NAME = check_window_exist("Tales Runner")
 
     if is_admin():
         win = Win()
